@@ -1,0 +1,57 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Alexa Skill Deployed to Lambda
+Parameters:
+  AppName:
+    Type: String
+    Description: Name of the application.
+    MinLength: "1"
+    MaxLength: "80"
+    AllowedPattern: "[a-z0-9-]+"
+    ConstraintDescription: Malformed input parameter. AppName must only contain lower case letters, numbers, and -.
+Resources:
+  LambdaTrustRole:
+    Description: Service role in IAM for Lambda
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AppName}-lambda-role"
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: [lambda.amazonaws.com]
+          Action: sts:AssumeRole
+      Path: /
+  LambdaRolePolicy:
+    Type: AWS::IAM::Policy
+    DependsOn: LambdaTrustRole
+    Description: Setting IAM policy for the service role for AWS Lambda
+    Properties:
+      PolicyName: AlexaSkillRolePolicy
+      PolicyDocument:
+        Statement:
+        - Effect: Allow
+          Action: ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+          Resource: ["*"]
+      Roles: [!Ref LambdaTrustRole]
+  AlexaSkillFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Code: ./src
+      Description: "A Lambda Function triggered by an Alexa Skill"
+      FunctionName: !Sub "${AppName}-skill"
+      Handler: "index.handler"
+      Role: !GetAtt LambdaTrustRole.Arn
+      Runtime: "nodejs4.3"
+      Tags:
+        - Key: "Category"
+          Value: "Alexa"
+  AlexaSkillFunctionPermissions:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      FunctionName: !Ref AlexaSkillFunction
+      Action: "lambda:InvokeFunction"
+      Principal: "alexa-appkit.amazon.com"
+Outputs:
+  FunctionARN:
+    Value: !GetAtt AlexaSkillFunction.Arn
+    Description: "Lambda function ARN to be placed in the Amazon Developer Portal"
